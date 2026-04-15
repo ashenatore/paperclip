@@ -31,6 +31,8 @@ import type {
   RoutineVariable,
 } from "@paperclipai/shared";
 import {
+  AGENT_ADAPTER_TYPES,
+  AGENT_ROLES,
   ISSUE_PRIORITIES,
   ISSUE_STATUSES,
   PROJECT_STATUSES,
@@ -3544,6 +3546,12 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
           warnings.push(`Agent ${agent.slug} references skill ${skillRef}, but that skill is not present in the package.`);
         }
       }
+      if (agent.role && agent.role !== "agent" && !AGENT_ROLES.includes(agent.role as any)) {
+        warnings.push(`Agent ${agent.slug} has unsupported role "${agent.role}". Valid roles: ${AGENT_ROLES.join(", ")}.`);
+      }
+      if (agent.adapterType && !AGENT_ADAPTER_TYPES.includes(agent.adapterType as any)) {
+        warnings.push(`Agent ${agent.slug} has unsupported adapterType "${agent.adapterType}". Valid types: ${AGENT_ADAPTER_TYPES.join(", ")}.`);
+      }
     }
 
     if (include.projects) {
@@ -3556,6 +3564,9 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const parsed = parseFrontmatterMarkdown(markdown);
         if (parsed.frontmatter.kind && parsed.frontmatter.kind !== "project") {
           warnings.push(`Project markdown ${project.path} does not declare kind: project in frontmatter.`);
+        }
+        if (project.status && !PROJECT_STATUSES.includes(project.status as any)) {
+          warnings.push(`Project ${project.slug} has unsupported status "${project.status}". Valid statuses: ${PROJECT_STATUSES.join(", ")}.`);
         }
       }
     }
@@ -3571,6 +3582,18 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
         const parsed = parseFrontmatterMarkdown(markdown);
         if (parsed.frontmatter.kind && parsed.frontmatter.kind !== "task") {
           warnings.push(`Task markdown ${issue.path} does not declare kind: task in frontmatter.`);
+        }
+        if (issue.status && !ISSUE_STATUSES.includes(issue.status as any)) {
+          warnings.push(`Task ${issue.slug} has unsupported status "${issue.status}". Valid statuses: ${ISSUE_STATUSES.join(", ")}.`);
+        }
+        if (issue.priority && !ISSUE_PRIORITIES.includes(issue.priority as any)) {
+          warnings.push(`Task ${issue.slug} has unsupported priority "${issue.priority}". Valid priorities: ${ISSUE_PRIORITIES.join(", ")}.`);
+        }
+        if (issue.projectSlug && !projectBySlug.has(issue.projectSlug)) {
+          warnings.push(`Task ${issue.slug} references project "${issue.projectSlug}", but that project is not present in the package.`);
+        }
+        if (issue.assigneeAgentSlug && !manifest.agents.some((agent) => agent.slug === issue.assigneeAgentSlug)) {
+          warnings.push(`Task ${issue.slug} references assignee "${issue.assigneeAgentSlug}", but that agent is not present in the package.`);
         }
         if (issue.projectWorkspaceKey) {
           const project = issue.projectSlug ? projectBySlug.get(issue.projectSlug) ?? null : null;
@@ -3590,6 +3613,21 @@ export function companyPortabilityService(db: Db, storage?: StorageService) {
           const resolvedRoutine = resolvePortableRoutineDefinition(issue, parsed.frontmatter.schedule);
           warnings.push(...resolvedRoutine.warnings);
           errors.push(...resolvedRoutine.errors);
+        }
+      }
+    }
+
+    if (manifest.sidebar) {
+      const agentSlugs = new Set(manifest.agents.map((agent) => agent.slug));
+      for (const slug of manifest.sidebar.agents) {
+        if (!agentSlugs.has(slug)) {
+          warnings.push(`Sidebar references agent "${slug}", but that agent is not present in the package.`);
+        }
+      }
+      const projectSlugs = new Set(manifest.projects.map((project) => project.slug));
+      for (const slug of manifest.sidebar.projects) {
+        if (!projectSlugs.has(slug)) {
+          warnings.push(`Sidebar references project "${slug}", but that project is not present in the package.`);
         }
       }
     }

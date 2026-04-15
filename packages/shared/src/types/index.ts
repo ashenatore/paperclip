@@ -120,6 +120,9 @@ export type {
   IssueAncestorGoal,
   IssueAttachment,
   IssueLabel,
+  CompanyDocumentListItem,
+  CompanyDocumentDetail,
+  CompanyDocumentActivity,
 } from "./issue.js";
 export type { Goal } from "./goal.js";
 export type { Approval, ApprovalComment } from "./approval.js";

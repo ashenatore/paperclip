@@ -104,6 +104,77 @@ export interface LegacyPlanDocument {
   source: "issue_description";
 }
 
+export interface CompanyDocumentListItem {
+  id: string;
+  companyId: string;
+  issueId: string;
+  issueTitle: string;
+  issueStatus: string;
+  issueAssigneeAgentId: string | null;
+  assigneeAgentName: string | null;
+  key: string;
+  title: string | null;
+  format: string;
+  revisionCount: number;
+  latestRevisionNumber: number;
+  latestChangeSummary: string | null;
+  createdByAgentId: string | null;
+  createdByAgentName: string | null;
+  updatedByAgentId: string | null;
+  updatedByAgentName: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  feedbackUpVotes: number;
+  feedbackDownVotes: number;
+}
+
+export interface CompanyDocumentDetail extends CompanyDocumentListItem {
+  body: string;
+  latestRevisionId: string | null;
+  siblingDocuments: Array<{
+    id: string;
+    key: string;
+    title: string | null;
+    revisionCount: number;
+    updatedAt: Date;
+  }>;
+  revisionAuthors: Array<{
+    agentId: string | null;
+    agentName: string | null;
+    userId: string | null;
+    revisionCount: number;
+    lastRevisionAt: Date;
+  }>;
+}
+
+export interface CompanyDocumentActivity {
+  stats: {
+    totalDocuments: number;
+    documentsByKey: Record<string, number>;
+    recentlyCreated: number;
+    recentlyUpdated: number;
+    unreviewedCount: number;
+    staleCount: number;
+  };
+  recentActivity: Array<{
+    documentId: string;
+    documentKey: string;
+    documentTitle: string | null;
+    issueId: string;
+    issueTitle: string;
+    action: "created" | "updated";
+    agentId: string | null;
+    agentName: string | null;
+    timestamp: Date;
+  }>;
+  activeAgents: Array<{
+    agentId: string;
+    agentName: string;
+    documentEditCount: number;
+    lastEditAt: Date;
+  }>;
+}
+
 export interface IssueRelationIssueSummary {
   id: string;
   identifier: string | null;

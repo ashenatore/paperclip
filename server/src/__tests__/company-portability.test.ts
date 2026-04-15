@@ -2418,4 +2418,224 @@ describe("company portability", () => {
     expect(nestedMaterializedFiles?.["AGENTS.md"]).not.toMatch(/^---\n/);
     expect(nestedMaterializedFiles?.["AGENTS.md"]).not.toContain('name: "ClaudeCoder"');
   });
+
+  it("warns on unsupported agent role during import preview", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "inline",
+        rootPath: "role-test",
+        files: {
+          "COMPANY.md": '---\nschema: "agentcompanies/v1"\nname: "Role Test"\n---\n',
+          "agents/bad-role/AGENTS.md": '---\nname: "Bad Role Agent"\nrole: "superadmin"\n---\n\nYou do everything.\n',
+        },
+      },
+      include: { company: true, agents: true, projects: false, issues: false },
+      target: { mode: "new_company", newCompanyName: "Role Test" },
+      agents: "all",
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).toContainEqual(expect.stringContaining("unsupported role"));
+    expect(preview.warnings).toContainEqual(expect.stringContaining("superadmin"));
+  });
+
+  it("warns on unsupported agent adapterType during import preview", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "inline",
+        rootPath: "adapter-test",
+        files: {
+          "COMPANY.md": '---\nschema: "agentcompanies/v1"\nname: "Adapter Test"\n---\n',
+          "agents/bad-adapter/AGENTS.md": [
+            "---",
+            'name: "Bad Adapter Agent"',
+            "---",
+            "",
+            "You use a fake adapter.",
+            "",
+          ].join("\n"),
+        },
+      },
+      include: { company: true, agents: true, projects: false, issues: false },
+      target: { mode: "new_company", newCompanyName: "Adapter Test" },
+      agents: "all",
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).not.toContainEqual(expect.stringContaining("unsupported adapterType"));
+  });
+
+  it("warns on unsupported adapterType when extension declares one", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "inline",
+        rootPath: "adapter-ext-test",
+        files: {
+          "COMPANY.md": '---\nschema: "agentcompanies/v1"\nname: "Adapter Ext Test"\n---\n',
+          "agents/bad-adapter/AGENTS.md": [
+            "---",
+            'name: "Bad Adapter Agent"',
+            "---",
+            "",
+            "You use a fake adapter.",
+            "",
+          ].join("\n"),
+          ".paperclip.yaml": [
+            'schema: "paperclip/v1"',
+            "agents:",
+            "  bad-adapter:",
+            "    adapter:",
+            '      type: "nonexistent_adapter"',
+          ].join("\n"),
+        },
+      },
+      include: { company: true, agents: true, projects: false, issues: false },
+      target: { mode: "new_company", newCompanyName: "Adapter Ext Test" },
+      agents: "all",
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).toContainEqual(expect.stringContaining("unsupported adapterType"));
+    expect(preview.warnings).toContainEqual(expect.stringContaining("nonexistent_adapter"));
+  });
+
+  it("warns on unsupported project status during import preview", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "inline",
+        rootPath: "project-status-test",
+        files: {
+          "COMPANY.md": '---\nschema: "agentcompanies/v1"\nname: "Status Test"\n---\n',
+          "projects/bad-status/PROJECT.md": [
+            "---",
+            'name: "Bad Status"',
+            "---",
+            "",
+            "A project with a bad status.",
+            "",
+          ].join("\n"),
+          ".paperclip.yaml": [
+            'schema: "paperclip/v1"',
+            "projects:",
+            "  bad-status:",
+            '    status: "flying"',
+          ].join("\n"),
+        },
+      },
+      include: { company: true, agents: false, projects: true, issues: false },
+      target: { mode: "new_company", newCompanyName: "Status Test" },
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).toContainEqual(expect.stringContaining("unsupported status"));
+    expect(preview.warnings).toContainEqual(expect.stringContaining("flying"));
+  });
+
+  it("warns on unsupported issue status and priority during import preview", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "inline",
+        rootPath: "issue-status-test",
+        files: {
+          "COMPANY.md": '---\nschema: "agentcompanies/v1"\nname: "Issue Status Test"\n---\n',
+          "tasks/bad-task/TASK.md": [
+            "---",
+            'name: "Bad Task"',
+            "---",
+            "",
+            "A task with bad status and priority.",
+            "",
+          ].join("\n"),
+          ".paperclip.yaml": [
+            'schema: "paperclip/v1"',
+            "tasks:",
+            "  bad-task:",
+            '    status: "on_fire"',
+            '    priority: "ultra"',
+          ].join("\n"),
+        },
+      },
+      include: { company: true, agents: false, projects: false, issues: true },
+      target: { mode: "new_company", newCompanyName: "Issue Status Test" },
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).toContainEqual(expect.stringContaining('unsupported status "on_fire"'));
+    expect(preview.warnings).toContainEqual(expect.stringContaining('unsupported priority "ultra"'));
+  });
+
+  it("warns on issue cross-references to missing project or agent", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "inline",
+        rootPath: "xref-test",
+        files: {
+          "COMPANY.md": '---\nschema: "agentcompanies/v1"\nname: "XRef Test"\n---\n',
+          "tasks/orphan-task/TASK.md": [
+            "---",
+            'name: "Orphan Task"',
+            'project: "ghost-project"',
+            'assignee: "ghost-agent"',
+            "---",
+            "",
+            "A task referencing missing project and agent.",
+            "",
+          ].join("\n"),
+        },
+      },
+      include: { company: true, agents: false, projects: false, issues: true },
+      target: { mode: "new_company", newCompanyName: "XRef Test" },
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).toContainEqual(expect.stringContaining('references project "ghost-project"'));
+    expect(preview.warnings).toContainEqual(expect.stringContaining('references assignee "ghost-agent"'));
+  });
+
+  it("warns on sidebar references to missing agents and projects", async () => {
+    const portability = companyPortabilityService({} as any);
+
+    const preview = await portability.previewImport({
+      source: {
+        type: "inline",
+        rootPath: "sidebar-test",
+        files: {
+          "COMPANY.md": '---\nschema: "agentcompanies/v1"\nname: "Sidebar Test"\n---\n',
+          ".paperclip.yaml": [
+            'schema: "paperclip/v1"',
+            "sidebar:",
+            "  agents:",
+            '    - "phantom-agent"',
+            "  projects:",
+            '    - "phantom-project"',
+          ].join("\n"),
+        },
+      },
+      include: { company: true, agents: false, projects: false, issues: false },
+      target: { mode: "new_company", newCompanyName: "Sidebar Test" },
+      collisionStrategy: "rename",
+    });
+
+    expect(preview.errors).toEqual([]);
+    expect(preview.warnings).toContainEqual(expect.stringContaining('Sidebar references agent "phantom-agent"'));
+    expect(preview.warnings).toContainEqual(expect.stringContaining('Sidebar references project "phantom-project"'));
+  });
 });

@@ -152,6 +152,12 @@ export const queryKeys = {
     dashboard: (pluginId: string) => ["plugins", pluginId, "dashboard"] as const,
     logs: (pluginId: string) => ["plugins", pluginId, "logs"] as const,
   },
+  documents: {
+    list: (companyId: string) => ["documents", companyId] as const,
+    detail: (companyId: string, documentId: string) =>
+      ["documents", companyId, "detail", documentId] as const,
+    activity: (companyId: string) => ["documents", companyId, "activity"] as const,
+  },
   adapters: {
     all: ["adapters"] as const,
   },

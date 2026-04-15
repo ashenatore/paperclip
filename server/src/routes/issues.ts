@@ -1034,6 +1034,72 @@ export function issueRoutes(
     res.json({ ok: true });
   });
 
+  // Company-scoped document listing endpoints (board-only)
+
+  router.get("/companies/:companyId/documents/activity", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    if (req.actor.type !== "board") {
+      res.status(403).json({ error: "Board authentication required" });
+      return;
+    }
+    const result = await documentsSvc.getCompanyDocumentActivity(companyId);
+    res.json(result);
+  });
+
+  router.get("/companies/:companyId/documents/:documentId", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const documentId = req.params.documentId as string;
+    assertCompanyAccess(req, companyId);
+    if (req.actor.type !== "board") {
+      res.status(403).json({ error: "Board authentication required" });
+      return;
+    }
+    const doc = await documentsSvc.getCompanyDocumentDetail(companyId, documentId);
+    if (!doc) {
+      res.status(404).json({ error: "Document not found" });
+      return;
+    }
+    res.json(doc);
+  });
+
+  router.get("/companies/:companyId/documents", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    assertCompanyAccess(req, companyId);
+    if (req.actor.type !== "board") {
+      res.status(403).json({ error: "Board authentication required" });
+      return;
+    }
+    const limitRaw = req.query.limit as string | undefined;
+    const offsetRaw = req.query.offset as string | undefined;
+    const parsedLimit = limitRaw ? Number.parseInt(limitRaw, 10) : undefined;
+    const parsedOffset = offsetRaw ? Number.parseInt(offsetRaw, 10) : undefined;
+    if (parsedLimit !== undefined && (!Number.isInteger(parsedLimit) || parsedLimit <= 0)) {
+      res.status(400).json({ error: "limit must be a positive integer" });
+      return;
+    }
+    if (parsedOffset !== undefined && (!Number.isInteger(parsedOffset) || parsedOffset < 0)) {
+      res.status(400).json({ error: "offset must be a non-negative integer" });
+      return;
+    }
+    const orderRaw = req.query.order as string | undefined;
+    if (orderRaw && orderRaw !== "asc" && orderRaw !== "desc") {
+      res.status(400).json({ error: "order must be 'asc' or 'desc'" });
+      return;
+    }
+    const result = await documentsSvc.listCompanyDocuments(companyId, {
+      key: req.query.key as string | undefined,
+      agentId: req.query.agentId as string | undefined,
+      issueStatus: req.query.issueStatus as string | undefined,
+      q: req.query.q as string | undefined,
+      sort: req.query.sort as string | undefined,
+      order: orderRaw as "asc" | "desc" | undefined,
+      limit: parsedLimit,
+      offset: parsedOffset,
+    });
+    res.json(result);
+  });
+
   router.post("/issues/:id/work-products", validate(createIssueWorkProductSchema), async (req, res) => {
     const id = req.params.id as string;
     const issue = await svc.getById(id);
